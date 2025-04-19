@@ -6,42 +6,46 @@ import torch
 
 app = Flask(__name__)
 
-# 设置上传文件的保存路径
+# Set the upload folder path
 UPLOAD_FOLDER = 'uploads'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# 加载 Stable Diffusion 模型和 LoRA 权重
-model_path = "sd-legacy/stable-diffusion-v1-5"  # 模型路径
+# Ensure the uploads directory exists
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+# Load Stable Diffusion model and LoRA weights
+model_path = "sd-legacy/stable-diffusion-v1-5"  # Model path
 pipe = DiffusionPipeline.from_pretrained(model_path, torch_dtype=torch.float16)
-pipe.load_lora_weights("maria26/Floor_Plan_LoRA")  # 加载 LoRA 权重
+pipe.load_lora_weights("maria26/Floor_Plan_LoRA")  # Load LoRA weights
 
 def allowed_file(filename):
-    """检查上传的文件是否为允许的格式"""
+    """Check if the uploaded file has an allowed format."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def generate_floor_plan(prompt):
-    """根据提示生成平面图"""
-    # 使用 LoRA 微调的模型生成平面图
+    """Generate a floor plan based on the prompt."""
+    # Use the LoRA fine-tuned model to generate the floor plan
     image = pipe(prompt).images[0]
     return image
 
 @app.route("/", methods=["GET", "POST"])
 def home():
     if request.method == "POST":
-        # 检查是否存在文件并且文件格式正确
+        # Check if a file is present and has the correct format
         if 'file' not in request.files:
             return redirect(request.url)
         file = request.files['file']
         if file.filename == '':
             return redirect(request.url)
         if file and allowed_file(file.filename):
-            # 保存上传的文件
+            # Save the uploaded file
             filename = secure_filename(file.filename)
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
 
-            # 使用提示生成平面图
+            # Generate the floor plan using the prompt
             prompt = "Floor plan of a small apartment, few rooms, one bathroom, big kitchen, many windows."
             generated_image = generate_floor_plan(prompt)
             generated_image.save('generated_floor_plan.png')
